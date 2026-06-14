@@ -1,10 +1,17 @@
 package com.springboot.razorpay.merchant.entity;
 
 import jakarta.persistence.*;
+import lombok.*;
+
 import java.util.UUID;
 
 @Entity
 @Table(name = "merchant_webhook_conifig")
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
 public class MerchantWebhookConfig {
 
     @Id
