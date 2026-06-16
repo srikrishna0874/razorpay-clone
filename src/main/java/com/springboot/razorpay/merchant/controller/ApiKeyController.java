@@ -2,10 +2,12 @@ package com.springboot.razorpay.merchant.controller;
 
 import com.springboot.razorpay.merchant.dto.request.CreateApiKeyRequest;
 import com.springboot.razorpay.merchant.dto.response.ApiKeyCreateResponse;
+import com.springboot.razorpay.merchant.dto.response.ApiKeyResponse;
 import com.springboot.razorpay.merchant.service.ApiKeyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -28,5 +30,23 @@ public class ApiKeyController {
                 apiKeyService.createApiKey(merchantId, createApiKeyRequest)
         );
     }
+
+    @GetMapping
+    public ResponseEntity<List<ApiKeyResponse>> getAllApiKeys(@PathVariable UUID merchantId) {
+        return ResponseEntity.ok(apiKeyService.getAllApiKeysByMerchant(merchantId));
+    }
+
+    @DeleteMapping("/{keyId}")
+    public ResponseEntity<Void> revokeApiKey(@PathVariable UUID merchantId, @PathVariable UUID keyId) {
+        apiKeyService.revoke(merchantId, keyId);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{keyId}/rotate")
+    public ResponseEntity<ApiKeyCreateResponse> rotateApiKey(@PathVariable UUID merchantId, @PathVariable UUID keyId) {
+        return ResponseEntity.ok(apiKeyService.rotateApiKey(merchantId, keyId));
+    }
+
 
 }
