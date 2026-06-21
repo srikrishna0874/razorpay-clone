@@ -1,5 +1,6 @@
 package com.springboot.razorpay.operations.entity;
 
+import com.springboot.razorpay.common.entity.BaseEntity;
 import jakarta.persistence.Embeddable;
 
 import java.util.UUID;

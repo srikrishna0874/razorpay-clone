@@ -7,6 +7,7 @@ import com.springboot.razorpay.merchant.dto.response.ApiKeyCreateResponse;
 import com.springboot.razorpay.merchant.dto.response.ApiKeyResponse;
 import com.springboot.razorpay.merchant.entity.ApiKey;
 import com.springboot.razorpay.merchant.entity.Merchant;
+import com.springboot.razorpay.merchant.mapper.ApiKeyMapper;
 import com.springboot.razorpay.merchant.repository.ApiKeyRepository;
 import com.springboot.razorpay.merchant.repository.MerchantRepository;
 import com.springboot.razorpay.merchant.service.ApiKeyService;
@@ -28,6 +29,8 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     private final MerchantRepository merchantRepository;
 
     private final ApiKeyRepository apiKeyRepository;
+
+    private final ApiKeyMapper apiKeyMapper;
 
     @Override
     @Transactional
@@ -55,16 +58,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
 
     @Override
     public List<ApiKeyResponse> getAllApiKeysByMerchant(UUID merchantId) {
-        return apiKeyRepository.findByMerchant_Id(merchantId)
-                .stream()
-                .map((apiKey ->
-                        new ApiKeyResponse(
-                                apiKey.getId(),
-                                apiKey.getKeyId(),
-                                apiKey.getEnvironment(),
-                                apiKey.isEnabled(),
-                                apiKey.getLastUsedAt(), null)))
-                .toList();
+        return apiKeyMapper.toApiKeyResponseList(apiKeyRepository.findByMerchant_Id(merchantId));
     }
 
     @Override
@@ -83,6 +77,10 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         ApiKey apiKey = apiKeyRepository.findByIdAndMerchant_Id(keyId, merchantId)
                 .orElseThrow(() -> new ResourceNotFoundException("ApiKey", keyId));
 
+
+        if (!apiKey.isEnabled())
+            throw new RuntimeException("Cannot rotate a disabled key.");
+
         String newRawSecret = RandomizerUtil.randomBase64(40);
 
         apiKey.setPreviousKeySecretHash(apiKey.getKeySecretHash());
@@ -93,7 +91,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         apiKey = apiKeyRepository.save(apiKey);
 
 
-        return new ApiKeyCreateResponse(apiKey.getId(), apiKey.getKeyId(), apiKey.getKeySecretHash(),
+        return new ApiKeyCreateResponse(apiKey.getId(), apiKey.getKeyId(), newRawSecret,
                 apiKey.getEnvironment());
     }
 

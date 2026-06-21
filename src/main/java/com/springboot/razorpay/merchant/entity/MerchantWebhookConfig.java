@@ -1,18 +1,22 @@
 package com.springboot.razorpay.merchant.entity;
 
+import com.springboot.razorpay.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.UUID;
 
 @Entity
-@Table(name = "merchant_webhook_conifig")
+@Table(name = "merchant_webhook_conifig",
+        indexes = {
+                @Index(name = "idx_webhook_merchant_id", columnList = "merchant_id, enabled")
+        })
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class MerchantWebhookConfig {
+public class MerchantWebhookConfig extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -25,13 +29,13 @@ public class MerchantWebhookConfig {
     @Column(nullable = false, length = 500)
     private String targetUrl;   //www.zara.com/webhook/success
 
-    @Column(length = 255)
+    @Column()
     private String webhookStringHash;
 
     @Column(nullable = false)
     private Boolean enabled = true;
 
-    @Column(length = 255)
+    @Column()
     private String eventTypes; //Comma-separated list of event types to subscribe to
 
 
