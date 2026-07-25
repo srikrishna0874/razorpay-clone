@@ -1,6 +1,6 @@
 package com.springboot.razorpay.payment.gateway.dto;
 
-public sealed interface PaymentResult permits PaymentResult.Failure, PaymentResult.Pending {
+public sealed interface PaymentResult permits PaymentResult.Failure, PaymentResult.Pending, PaymentResult.Success {
 
     record Pending(String registrationRef) implements PaymentResult {
     }
@@ -11,8 +11,12 @@ public sealed interface PaymentResult permits PaymentResult.Failure, PaymentResu
     ) implements PaymentResult {
     }
 
-}
+    record Success(
+            String bankReference
+    ) implements PaymentResult {
+    }
 
+}
 
 
 //public sealed interface PaymentResult permits PaymentResult.Failure, PaymentResult.Pending {

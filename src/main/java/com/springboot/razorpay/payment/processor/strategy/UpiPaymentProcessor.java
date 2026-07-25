@@ -1,5 +1,6 @@
 package com.springboot.razorpay.payment.processor.strategy;
 
+import com.springboot.razorpay.common.util.RandomizerUtil;
 import com.springboot.razorpay.payment.processor.PaymentProcessor;
 import com.springboot.razorpay.payment.processor.dto.PaymentProcessorRequest;
 import com.springboot.razorpay.payment.processor.dto.PaymentProcessorResponse;
@@ -7,6 +8,26 @@ import com.springboot.razorpay.payment.processor.dto.PaymentProcessorResponse;
 public class UpiPaymentProcessor implements PaymentProcessor {
     @Override
     public PaymentProcessorResponse charge(PaymentProcessorRequest paymentProcessorRequest) {
-        return null;
+        final String VPA_CODE_FAIL = "fail@okaxis";
+
+        String bankCode = paymentProcessorRequest.methodDetails() != null ?
+                paymentProcessorRequest.methodDetails().get("VPA").toString() : null;
+
+        // simulation
+        if (VPA_CODE_FAIL.equals(bankCode)) {
+            return new PaymentProcessorResponse.Failure(
+                    "BANK_REJECTED",
+                    "Bank rejected the transaction registration."
+            );
+        }
+
+        String processorRef = "UPI_PROCESSOR_" + RandomizerUtil.randomBase64(16);
+
+        String redirectRef = "BANK_REF" + RandomizerUtil.randomBase64(16);
+
+        return new PaymentProcessorResponse.Success(
+                processorRef,
+                redirectRef
+        );
     }
 }
