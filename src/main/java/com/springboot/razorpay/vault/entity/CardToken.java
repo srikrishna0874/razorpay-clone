@@ -3,12 +3,18 @@ package com.springboot.razorpay.vault.entity;
 import com.springboot.razorpay.common.entity.BaseEntity;
 import com.springboot.razorpay.merchant.entity.Customer;
 import jakarta.persistence.*;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
 @Table(name = "card_token")
+@Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class CardToken extends BaseEntity {
 
     @Id
