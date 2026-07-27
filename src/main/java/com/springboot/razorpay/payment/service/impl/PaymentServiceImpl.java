@@ -25,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+
+// Only for testing, don't add this in prod
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -61,6 +63,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .merchantId(merchantId)
                 .amount(orderRecord.getAmount())
                 .status(PaymentStatus.CREATED)
+                .idempotencyKey(UUID.randomUUID().toString())
                 .method(paymentInitRequestDto.paymentMethod())
                 .methodDetails(paymentInitRequestDto.methodDetails())
                 .build();
@@ -76,6 +79,7 @@ public class PaymentServiceImpl implements PaymentService {
                 paymentInitRequestDto.methodDetails()
         );
 
+        paymentTransitionService.applyTransition(payment, PaymentEvent.AUTHORIZE_ATTEMPT);
         PaymentResult paymentResult = paymentGatewayRouter.initiatePayment(paymentRequest);
 
         switch (paymentResult) {
@@ -130,6 +134,50 @@ public class PaymentServiceImpl implements PaymentService {
         // TODO : Send a Kafka event
 
         return paymentMapper.toResponse(payment);
+    }
+
+    @Override
+    @Transactional
+    public void resolveAuthorization(UUID paymentId, boolean approve, String bankReference, String errorCode,
+                                     String errorDescription) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentId));
+
+        if (payment.getStatus() != PaymentStatus.AUTHORIZING) {
+            log.warn("Payment is not in AUTHORIZING state, paymentId: {}, status: {}", paymentId, payment.getStatus());
+            return;
+        }
+
+        OrderRecord orderRecord = payment.getOrder();
+
+        if (approve) {
+            paymentTransitionService.applyTransition(payment, PaymentEvent.AUTHORIZE_SUCCESS);
+            payment.setBankReference(bankReference);
+            payment.setAuthorizedAt(LocalDateTime.now());
+
+            // Auto-capture
+            paymentTransitionService.applyTransition(payment, PaymentEvent.CAPTURE_REQUEST);
+            PaymentResult capturedPaymentResult = paymentGatewayRouter.capture(payment.getMethod(), paymentId);
+
+            if (capturedPaymentResult instanceof PaymentResult.Success success) {
+                paymentTransitionService.applyTransition(payment, PaymentEvent.CAPTURE_SUCCESS);
+                payment.setCapturedAt(LocalDateTime.now());
+                orderRecord.setOrderStatus(OrderStatus.PAID);
+            } else if (capturedPaymentResult instanceof PaymentResult.Failure(String code, String description)) {
+                paymentTransitionService.applyTransition(payment, PaymentEvent.CAPTURE_FAIL);
+                payment.setErrorCode(code);
+                payment.setErrorDescription(description);
+            }
+        } else {
+            paymentTransitionService.applyTransition(payment, PaymentEvent.AUTHORIZE_FAIL);
+            payment.setErrorCode(errorCode);
+            payment.setErrorDescription(errorDescription);
+        }
+
+        paymentRepository.save(payment);
+        orderRepository.save(orderRecord);
+
+        // TODO: Send a Kafka event
     }
 }
 
