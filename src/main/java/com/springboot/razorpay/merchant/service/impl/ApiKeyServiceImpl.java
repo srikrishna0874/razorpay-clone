@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class ApiKeyServiceImpl implements ApiKeyService {
 
     private final MerchantRepository merchantRepository;

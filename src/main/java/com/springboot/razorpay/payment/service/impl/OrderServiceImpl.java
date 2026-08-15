@@ -4,6 +4,7 @@ import com.springboot.razorpay.common.enums.OrderStatus;
 import com.springboot.razorpay.common.exception.BusinessRuleViolationException;
 import com.springboot.razorpay.common.exception.DuplicateResourceException;
 import com.springboot.razorpay.common.exception.ResourceNotFoundException;
+import com.springboot.razorpay.merchant.service.CustomerService;
 import com.springboot.razorpay.payment.dto.request.CreateOrderRequest;
 import com.springboot.razorpay.payment.dto.response.OrderResponse;
 import com.springboot.razorpay.payment.dto.response.PaymentResponse;
@@ -39,6 +40,8 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderMapper orderMapper;
 
+    private final CustomerService customerService;
+
     @Value("${payment.order.default-order-expiry-minutes:30}")
     private int defaultOrderExpiryMinutes;
 
@@ -52,8 +55,20 @@ public class OrderServiceImpl implements OrderService {
                     "Order with receipt already exists" + createOrderRequest.receipt());
         }
 
+        UUID customerId = null;
+
+        if (createOrderRequest.customer() != null) {
+            customerId = customerService.findOrCreate(
+                    merchantId,
+                    createOrderRequest.customer().email(),
+                    createOrderRequest.customer().name(),
+                    createOrderRequest.customer().phoneNumber()
+            );
+        }
+
         OrderRecord order = OrderRecord.builder()
                 .merchantId(merchantId)
+                .customerId(customerId)
                 .amount(createOrderRequest.money())
                 .receipt(createOrderRequest.receipt())
                 .notes(createOrderRequest.notes())
@@ -92,17 +107,7 @@ public class OrderServiceImpl implements OrderService {
         orderRecord.setOrderStatus(OrderStatus.CANCELED);
         orderRecord = orderRepository.save(orderRecord);
 
-        return new OrderResponse(
-                orderRecord.getId(),
-                orderRecord.getMerchantId(),
-                orderRecord.getReceipt(),
-                orderRecord.getAmount(),
-                orderRecord.getOrderStatus(),
-                orderRecord.getAttempts(),
-                orderRecord.getNotes(),
-                orderRecord.getExpiresAt(),
-                null
-        );
+        return orderMapper.toOrderResponse(orderRecord);
     }
 
     @Override

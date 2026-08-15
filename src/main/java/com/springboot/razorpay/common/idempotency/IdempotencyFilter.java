@@ -110,10 +110,11 @@ public class IdempotencyFilter extends OncePerRequestFilter {
             throws IOException {
         int separatorIndex = idempotencyKeyValue.indexOf(SEPARATOR);
 
-        if (separatorIndex == -1) {
-            IdempotencyConflictException exception =
+        if (separatorIndex < 0) {
+            var exception =
                     new IdempotencyConflictException("A request with this idempotency key is in progress");
             handlerExceptionResolver.resolveException(request, response, null, exception);
+            return;
         }
 
         int status = Integer.parseInt(idempotencyKeyValue.substring(0, separatorIndex));
@@ -124,5 +125,7 @@ public class IdempotencyFilter extends OncePerRequestFilter {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
+        response.getOutputStream().flush();
+        log.debug("IdempotencyFilter: Replayed response status = {}", status);
     }
 }

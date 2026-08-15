@@ -19,7 +19,8 @@ public record TokenizeRequest(
         String cvv,
 
         @NotNull(message = "Expiry month is required")
-        @ExpiryMonth
+        @Min(value = 1, message = "Expiry must be between 1 to 12")
+        @Max(value = 12, message = "Expiry must be between 1 to 12")
         Integer expiryMonth,
 
         @NotNull(message = "Expiry year is required")

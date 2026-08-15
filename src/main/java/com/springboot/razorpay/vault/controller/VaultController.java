@@ -20,7 +20,7 @@ import java.util.UUID;
 @RequestMapping(path = "/v1/vault")
 public class VaultController {
 
-    private MerchantContext merchantContext;
+    private final MerchantContext merchantContext;
 
     private final VaultService vaultService;
 
