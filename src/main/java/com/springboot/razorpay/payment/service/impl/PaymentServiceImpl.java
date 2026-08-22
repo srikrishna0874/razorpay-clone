@@ -1,5 +1,6 @@
 package com.springboot.razorpay.payment.service.impl;
 
+import com.springboot.razorpay.common.enums.EventAggregateType;
 import com.springboot.razorpay.common.enums.OrderStatus;
 import com.springboot.razorpay.common.enums.PaymentEvent;
 import com.springboot.razorpay.common.enums.PaymentStatus;
@@ -13,6 +14,7 @@ import com.springboot.razorpay.payment.gateway.PaymentGatewayRouter;
 import com.springboot.razorpay.payment.gateway.dto.PaymentRequest;
 import com.springboot.razorpay.payment.gateway.dto.PaymentResult;
 import com.springboot.razorpay.payment.mapper.PaymentMapper;
+import com.springboot.razorpay.payment.outbox.OutboxEventPublisher;
 import com.springboot.razorpay.payment.repository.OrderRepository;
 import com.springboot.razorpay.payment.repository.PaymentRepository;
 import com.springboot.razorpay.payment.service.PaymentService;
@@ -24,6 +26,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 
@@ -43,6 +46,8 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentTransitionService paymentTransitionService;
 
+    private final OutboxEventPublisher outboxEventPublisher;
+
     @Override
     @Transactional()
     public PaymentResponse initiatePayment(UUID merchantId, PaymentInitRequestDto paymentInitRequestDto) {
@@ -50,8 +55,9 @@ public class PaymentServiceImpl implements PaymentService {
 //        OrderRecord orderRecord = orderRepository.findByIdAndMerchantId(paymentInitRequestDto.orderId(), merchantId)
 //                .orElseThrow(() -> new ResourceNotFoundException("Order", paymentInitRequestDto.orderId()));
 
-        OrderRecord orderRecord = orderRepository.findByIdAndMerchantIdForUpdate(paymentInitRequestDto.orderId(), merchantId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order", paymentInitRequestDto.orderId()));
+        OrderRecord orderRecord =
+                orderRepository.findByIdAndMerchantIdForUpdate(paymentInitRequestDto.orderId(), merchantId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Order", paymentInitRequestDto.orderId()));
 
         if (orderRecord.getOrderStatus() != OrderStatus.CREATED &&
                 orderRecord.getOrderStatus() != OrderStatus.ATTEMPTED) {
@@ -105,7 +111,17 @@ public class PaymentServiceImpl implements PaymentService {
         payment = paymentRepository.save(payment);
         orderRepository.save(orderRecord);
 
-        // TODO : Send a Kafka event about payment initiation
+        outboxEventPublisher.publishOutboxEvent(
+                EventAggregateType.PAYMENT, payment.getId(), "PAYMENT_CREATED",
+                Map.of("orderId", orderRecord.getId().toString(),
+                        "paymentId", payment.getId().toString(),
+                        "merchantId", merchantId.toString(),
+                        "paymentStatus", payment.getStatus().name(),
+                        "amountUnits", orderRecord.getAmount().getAmountUnits(),
+                        "amountCurrency", orderRecord.getAmount().getCurrency(),
+                        "paymentMethod", payment.getMethod()
+                )
+        );
 
         return paymentMapper.toResponse(payment);
     }
@@ -139,7 +155,17 @@ public class PaymentServiceImpl implements PaymentService {
 
         payment = paymentRepository.save(payment);
 
-        // TODO : Send a Kafka event
+        outboxEventPublisher.publishOutboxEvent(
+                EventAggregateType.PAYMENT, payment.getId(), "PAYMENT_STATUS_CHANGED",
+                Map.of("orderId", payment.getOrder().getId().toString(),
+                        "paymentId", payment.getId().toString(),
+                        "merchantId", merchantId.toString(),
+                        "paymentStatus", payment.getStatus().name(),
+                        "amountUnits", payment.getAmount().getAmountUnits(),
+                        "amountCurrency", payment.getAmount().getCurrency(),
+                        "paymentMethod", payment.getMethod()
+                )
+        );
 
         return paymentMapper.toResponse(payment);
     }
@@ -189,7 +215,17 @@ public class PaymentServiceImpl implements PaymentService {
         paymentRepository.save(payment);
         orderRepository.save(orderRecord);
 
-        // TODO: Send a Kafka event
+        outboxEventPublisher.publishOutboxEvent(
+                EventAggregateType.PAYMENT, payment.getId(), "PAYMENT_STATUS_CHANGED",
+                Map.of("orderId", payment.getOrder().getId().toString(),
+                        "paymentId", payment.getId().toString(),
+                        "merchantId", payment.getMerchantId().toString(),
+                        "paymentStatus", payment.getStatus().name(),
+                        "amountUnits", payment.getAmount().getAmountUnits(),
+                        "amountCurrency", payment.getAmount().getCurrency(),
+                        "paymentMethod", payment.getMethod()
+                )
+        );
     }
 }
 
