@@ -1,4 +1,4 @@
-package com.springboot.razorpay.vault.config;
+package com.springboot.razorpay.common.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -11,14 +11,19 @@ import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
 
 @Configuration
-public class VaultEncryptionConfig {
+public class AesEncryptionConfig {
 
     @Value("${vault.master-key}")
     private String masterKey;
 
-    public static BytesEncryptor panEncryptor(byte[] dek) {
-        SecretKeySpec dekKey = new SecretKeySpec(dek, "AES");
-        return new AesBytesEncryptor(dekKey, KeyGenerators.secureRandom(12),
+    @Bean
+    public BytesEncryptor masterKeyEncryptor() {
+        byte[] masterKeyBytes = Base64.getDecoder().decode(masterKey);
+
+        SecretKeySpec masterDekKey = new SecretKeySpec(masterKeyBytes, "AES");
+
+        return new AesBytesEncryptor(masterDekKey, KeyGenerators.secureRandom(12),
                 AesBytesEncryptor.CipherAlgorithm.GCM);
     }
 }
+
